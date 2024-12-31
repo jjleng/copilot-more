@@ -45,6 +45,7 @@ The exposed models aren't limited to coding tasks—you can connect any AI clien
     REFRESH_TOKEN=gho_xxxxx poetry run uvicorn copilot_more.server:app --port 15432
     ```
 
+3. Alternatively, use the `refresh-token.sh` script to automate the above.
 
 ## ✨ Magic Time
 Now you can connect Cline or any other AI client to `http://localhost:15432` and start coding with the power of GPT-4o and Claude-3.5-Sonnet without worrying about the cost. Note, the copilot-more manages the access token, you can use whatever string as API keys if Cline or the AI tools ask for one.
