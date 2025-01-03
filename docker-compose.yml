@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    ports:
+      - "${PORT:-15432}:${PORT:-15432}"
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - REFRESH_TOKEN=${REFRESH_TOKEN}
+    command: poetry run uvicorn copilot_more.server:app --port ${PORT:-15432} --host 0.0.0.0

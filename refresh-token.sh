@@ -25,5 +25,5 @@ access_token=$(echo "$response_access_token" | grep -oE 'access_token=[^&]+' | c
 # Print the access token
 echo "Your access token is: $access_token"
 echo "Run the app with the following command:"
+echo "REFRESH_TOKE=$access_token" > .env
 echo "REFRESH_TOKEN=$access_token poetry run uvicorn copilot_more.server:app --port 15432"
-

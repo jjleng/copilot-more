@@ -36,6 +36,8 @@ The exposed models aren't limited to coding tasks—you can connect any AI clien
 
 2. Install and run copilot_more
 
+  * Bare metal installation:
+
     ```bash
     git clone https://github.com/jjleng/copilot-more.git
     cd copilot-more
@@ -44,11 +46,32 @@ The exposed models aren't limited to coding tasks—you can connect any AI clien
     # run the server. Replace gho_xxxxx with the refresh token you got in the previous step. Note, you can use any port number you want.
     REFRESH_TOKEN=gho_xxxxx poetry run uvicorn copilot_more.server:app --port 15432
     ```
+  * Docker Compose installation:
+
+    ```bash
+    git clone https://github.com/jjleng/copilot-more.git
+    cd copilot-more
+    # run the server. Ensure you either have the refresh token in the .env file or pass it as an environment variable.
+    docker-compose up --build
+    ```
+
 
 3. Alternatively, use the `refresh-token.sh` script to automate the above.
 
 ## ✨ Magic Time
 Now you can connect Cline or any other AI client to `http://localhost:15432` and start coding with the power of GPT-4o and Claude-3.5-Sonnet without worrying about the cost. Note, the copilot-more manages the access token, you can use whatever string as API keys if Cline or the AI tools ask for one.
+
+### 🚀 Cline Integration
+
+1. Install Cline `code --install-extension saoudrizwan.claude-dev`
+2. Open Cline and go to the settings
+3. Set the following:
+     * **API Provider**: `OpenAI Compatible`
+     * **API URL**: `http://localhost:15432`
+     * **API Key**: `anyting`
+     * **Model**: `gpt-4o`, `claude-3.5-sonnet`, `o1`, `o1-mini`
+
+
 
 
 ## 🤔 Limitation
