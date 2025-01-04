@@ -21,6 +21,7 @@ app.add_middleware(
 CHAT_COMPLETIONS_API_ENDPOINT = "https://api.individual.githubcopilot.com/chat/completions"
 MODELS_API_ENDPOINT = "https://api.individual.githubcopilot.com/models"
 TIMEOUT = ClientTimeout(total=300)
+MAX_TOKENS = 10240
 
 def preprocess_request_body(request_body: dict) -> dict:
     """
@@ -52,9 +53,11 @@ def preprocess_request_body(request_body: dict) -> dict:
             if message["role"] == "system":
                 message["role"] = "user"
 
+    max_tokens = request_body.get("max_tokens", MAX_TOKENS)
     return {
         **request_body,
-        "messages": processed_messages
+        "messages": processed_messages,
+        "max_tokens": max_tokens
     }
 
 # o1 models only support non-streaming responses, we need to convert them to standard streaming format
