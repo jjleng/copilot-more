@@ -72,7 +72,23 @@ Now you can connect Cline or any other AI client to `http://localhost:15432` and
      * **Model**: `gpt-4o`, `claude-3.5-sonnet`, `o1`, `o1-mini`
 
 
+## 🔍 Debugging
 
+For troubleshooting integration issues, you can enable traffic logging to inspect the API requests and responses.
+
+### Traffic Logging
+
+To enable logging, set the `RECORD_TRAFFIC` environment variable:
+
+```bash
+RECORD_TRAFFIC=true REFRESH_TOKEN=gho_xxxx poetry run uvicorn copilot_more.server:app --port 15432
+```
+
+All traffic will be logged to files in the current directory with the naming pattern: copilot_traffic_YYYYMMDD_HHMMSS.mitm
+
+Attach this file when reporting issues.
+
+Note: the Authorization header has ben redacted. So the refresh token won't be leaked.
 
 ## 🤔 Limitation
 

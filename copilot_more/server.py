@@ -1,11 +1,14 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 import json
 
 from copilot_more.token import get_cached_copilot_token
 from copilot_more.logger import logger
+from copilot_more.proxy import initialize_proxy, get_proxy_url, RECORD_TRAFFIC
+
+initialize_proxy()
 
 app = FastAPI()
 
@@ -100,6 +103,10 @@ def convert_to_sse_events(data: dict) -> list[str]:
     events.append("data: [DONE]\n\n")
     return events
 
+async def create_client_session() -> ClientSession:
+    connector = TCPConnector(ssl=False) if get_proxy_url() else TCPConnector()
+    return ClientSession(timeout=TIMEOUT, connector=connector)
+
 @app.get("/models")
 async def list_models():
     """
@@ -107,15 +114,18 @@ async def list_models():
     """
     try:
         token = await get_cached_copilot_token()
-        async with ClientSession(timeout=TIMEOUT) as session:
-            async with session.get(
-                MODELS_API_ENDPOINT,
-                headers={
+        session = await create_client_session()
+        async with session as s:
+            kwargs = {
+                "headers": {
                     "Authorization": f"Bearer {token['token']}",
                     "Content-Type": "application/json",
                     "editor-version": "vscode/1.95.3"
-                },
-            ) as response:
+                }
+            }
+            if RECORD_TRAFFIC:
+                kwargs["proxy"] = get_proxy_url()
+            async with s.get(MODELS_API_ENDPOINT, **kwargs) as response:
                 if response.status != 200:
                     error_message = await response.text()
                     logger.error(f"Models API error: {error_message}")
@@ -150,17 +160,20 @@ async def proxy_chat_completions(request: Request):
             model = request_body.get("model", "")
             is_streaming = request_body.get("stream", False)
 
-            async with ClientSession(timeout=TIMEOUT) as session:
-                async with session.post(
-                    CHAT_COMPLETIONS_API_ENDPOINT,
-                    json=request_body,
-                    headers={
+            session = await create_client_session()
+            async with session as s:
+                kwargs = {
+                    "json": request_body,
+                    "headers": {
                         "Authorization": f"Bearer {token['token']}",
                         "Content-Type": "application/json",
                         "Accept": "text/event-stream",
                         "editor-version": "vscode/1.95.3"
-                    },
-                ) as response:
+                    }
+                }
+                if RECORD_TRAFFIC:
+                    kwargs["proxy"] = get_proxy_url()
+                async with s.post(CHAT_COMPLETIONS_API_ENDPOINT, **kwargs) as response:
                     if response.status != 200:
                         error_message = await response.text()
                         logger.error(f"API error: {error_message}")
