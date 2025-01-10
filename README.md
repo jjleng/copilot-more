@@ -4,7 +4,7 @@
 
 The exposed models aren't limited to coding tasks—you can connect any AI client and customize parameters like temperature, context window length, and more.
 
-# Ethical Use
+## Ethical Use
 - Respect the GitHub Copilot terms of service.
 - Minimize the use of the models for non-coding purposes.
 - Be mindful of the risk of being banned by GitHub Copilot for misuse.

@@ -7,6 +7,7 @@ import json
 from copilot_more.token import get_cached_copilot_token
 from copilot_more.logger import logger
 from copilot_more.proxy import initialize_proxy, get_proxy_url, RECORD_TRAFFIC
+from copilot_more.utils import convert_problematic_string, needs_conversion
 
 initialize_proxy()
 
@@ -37,6 +38,10 @@ def preprocess_request_body(request_body: dict) -> dict:
 
     for message in request_body["messages"]:
         if not isinstance(message.get("content"), list):
+            content = message["content"]
+            if isinstance(content, str) and needs_conversion(content):
+                content = convert_problematic_string(content)
+            message["content"] = content
             processed_messages.append(message)
             continue
 
@@ -44,9 +49,13 @@ def preprocess_request_body(request_body: dict) -> dict:
             if content_item.get("type") != "text":
                 raise HTTPException(400, "Only text type is supported in content array")
 
+            text = content_item["text"]
+            if isinstance(text, str) and needs_conversion(text):
+                text = convert_problematic_string(text)
+
             processed_messages.append({
                 "role": message["role"],
-                "content": content_item["text"]
+                "content": text
             })
 
     # o1 models don't support system messages
