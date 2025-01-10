@@ -1,12 +1,13 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from aiohttp import ClientSession, ClientTimeout, TCPConnector
 import json
 
-from copilot_more.token import get_cached_copilot_token
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+
 from copilot_more.logger import logger
-from copilot_more.proxy import initialize_proxy, get_proxy_url, RECORD_TRAFFIC
+from copilot_more.proxy import RECORD_TRAFFIC, get_proxy_url, initialize_proxy
+from copilot_more.token import get_cached_copilot_token
 from copilot_more.utils import convert_problematic_string, needs_conversion
 
 initialize_proxy()
@@ -22,10 +23,13 @@ app.add_middleware(
 )
 
 
-CHAT_COMPLETIONS_API_ENDPOINT = "https://api.individual.githubcopilot.com/chat/completions"
+CHAT_COMPLETIONS_API_ENDPOINT = (
+    "https://api.individual.githubcopilot.com/chat/completions"
+)
 MODELS_API_ENDPOINT = "https://api.individual.githubcopilot.com/models"
 TIMEOUT = ClientTimeout(total=300)
 MAX_TOKENS = 10240
+
 
 def preprocess_request_body(request_body: dict) -> dict:
     """
@@ -53,10 +57,7 @@ def preprocess_request_body(request_body: dict) -> dict:
             if isinstance(text, str) and needs_conversion(text):
                 text = convert_problematic_string(text)
 
-            processed_messages.append({
-                "role": message["role"],
-                "content": text
-            })
+            processed_messages.append({"role": message["role"], "content": text})
 
     # o1 models don't support system messages
     model: str = request_body.get("model", "")
@@ -66,11 +67,8 @@ def preprocess_request_body(request_body: dict) -> dict:
                 message["role"] = "user"
 
     max_tokens = request_body.get("max_tokens", MAX_TOKENS)
-    return {
-        **request_body,
-        "messages": processed_messages,
-        "max_tokens": max_tokens
-    }
+    return {**request_body, "messages": processed_messages, "max_tokens": max_tokens}
+
 
 # o1 models only support non-streaming responses, we need to convert them to standard streaming format
 def convert_o1_response(data: dict) -> dict:
@@ -87,9 +85,7 @@ def convert_o1_response(data: dict) -> dict:
         if "message" in choice:
             converted_choice = {
                 "index": choice["index"],
-                "delta": {
-                    "content": choice["message"]["content"]
-                }
+                "delta": {"content": choice["message"]["content"]},
             }
             if "finish_reason" in choice:
                 converted_choice["finish_reason"] = choice["finish_reason"]
@@ -97,24 +93,27 @@ def convert_o1_response(data: dict) -> dict:
 
     return {**data, "choices": converted_choices}
 
+
 def convert_to_sse_events(data: dict) -> list[str]:
     """Convert response data to SSE events"""
     events = []
     if "choices" in data:
         for choice in data["choices"]:
             event_data = {
-                "id": data.get('id', ''),
+                "id": data.get("id", ""),
                 "created": data.get("created", 0),
                 "model": data.get("model", ""),
-                "choices": [choice]
+                "choices": [choice],
             }
             events.append(f"data: {json.dumps(event_data)}\n\n")
     events.append("data: [DONE]\n\n")
     return events
 
+
 async def create_client_session() -> ClientSession:
     connector = TCPConnector(ssl=False) if get_proxy_url() else TCPConnector()
     return ClientSession(timeout=TIMEOUT, connector=connector)
+
 
 @app.get("/models")
 async def list_models():
@@ -129,7 +128,7 @@ async def list_models():
                 "headers": {
                     "Authorization": f"Bearer {token['token']}",
                     "Content-Type": "application/json",
-                    "editor-version": "vscode/1.95.3"
+                    "editor-version": "vscode/1.95.3",
                 }
             }
             if RECORD_TRAFFIC:
@@ -139,13 +138,13 @@ async def list_models():
                     error_message = await response.text()
                     logger.error(f"Models API error: {error_message}")
                     raise HTTPException(
-                        response.status,
-                        f"Models API error: {error_message}"
+                        response.status, f"Models API error: {error_message}"
                     )
                 return await response.json()
     except Exception as e:
         logger.error(f"Error fetching models: {str(e)}")
         raise HTTPException(500, f"Error fetching models: {str(e)}")
+
 
 @app.post("/chat/completions")
 async def proxy_chat_completions(request: Request):
@@ -177,8 +176,8 @@ async def proxy_chat_completions(request: Request):
                         "Authorization": f"Bearer {token['token']}",
                         "Content-Type": "application/json",
                         "Accept": "text/event-stream",
-                        "editor-version": "vscode/1.95.3"
-                    }
+                        "editor-version": "vscode/1.95.3",
+                    },
                 }
                 if RECORD_TRAFFIC:
                     kwargs["proxy"] = get_proxy_url()
@@ -187,8 +186,7 @@ async def proxy_chat_completions(request: Request):
                         error_message = await response.text()
                         logger.error(f"API error: {error_message}")
                         raise HTTPException(
-                            response.status,
-                            f"API error: {error_message}"
+                            response.status, f"API error: {error_message}"
                         )
 
                     if model.startswith("o1") and is_streaming:
@@ -196,7 +194,7 @@ async def proxy_chat_completions(request: Request):
                         data = await response.json()
                         converted_data = convert_o1_response(data)
                         for event in convert_to_sse_events(converted_data):
-                            yield event.encode('utf-8')
+                            yield event.encode("utf-8")
                     else:
                         # For other cases, stream chunks directly
                         async for chunk in response.content.iter_chunks():
