@@ -8,7 +8,9 @@ from fastapi.responses import StreamingResponse
 from copilot_more.logger import logger
 from copilot_more.proxy import RECORD_TRAFFIC, get_proxy_url, initialize_proxy
 from copilot_more.token import get_cached_copilot_token
-from copilot_more.utils import convert_problematic_string, needs_conversion
+from copilot_more.utils import StringSanitizer
+
+sanitizer = StringSanitizer()
 
 initialize_proxy()
 
@@ -43,8 +45,11 @@ def preprocess_request_body(request_body: dict) -> dict:
     for message in request_body["messages"]:
         if not isinstance(message.get("content"), list):
             content = message["content"]
-            if isinstance(content, str) and needs_conversion(content):
-                content = convert_problematic_string(content)
+            if isinstance(content, str):
+                result = sanitizer.sanitize(content)
+                if not result.success:
+                    logger.warning(f"String sanitization warnings: {result.warnings}")
+                content = result.text
             message["content"] = content
             processed_messages.append(message)
             continue
@@ -54,8 +59,11 @@ def preprocess_request_body(request_body: dict) -> dict:
                 raise HTTPException(400, "Only text type is supported in content array")
 
             text = content_item["text"]
-            if isinstance(text, str) and needs_conversion(text):
-                text = convert_problematic_string(text)
+            if isinstance(text, str):
+                result = sanitizer.sanitize(text)
+                if not result.success:
+                    logger.warning(f"String sanitization warnings: {result.warnings}")
+                text = result.text
 
             processed_messages.append({"role": message["role"], "content": text})
 
@@ -128,7 +136,7 @@ async def list_models():
                 "headers": {
                     "Authorization": f"Bearer {token['token']}",
                     "Content-Type": "application/json",
-                    "editor-version": "vscode/1.95.3",
+                    "editor-version": "vscode/1.95.3"
                 }
             }
             if RECORD_TRAFFIC:
