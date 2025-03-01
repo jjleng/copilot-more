@@ -50,6 +50,9 @@ async def get_cached_copilot_token() -> dict:
 
     logger.info("Token expired or not found, refreshing...")
     new_token = await refresh_token()
+    logger.info(
+        f"Token refreshed successfully, expires at {new_token.get('expires_at')}"
+    )
     cache_copilot_token(new_token)
     return new_token
 
@@ -67,9 +70,6 @@ async def refresh_token() -> dict:
         ) as response:
             if response.status == 200:
                 token_data = await response.json()
-                logger.info(
-                    f"Token refreshed successfully, expires at {token_data.get('expires_at')}"
-                )
                 return token_data
             error_msg = (
                 f"Failed to refresh token: {response.status} {await response.text()}"

@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any
+from contextlib import asynccontextmanager
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from fastapi import FastAPI, HTTPException, Request
@@ -9,13 +9,21 @@ from fastapi.responses import StreamingResponse
 from copilot_more.logger import logger
 from copilot_more.proxy import RECORD_TRAFFIC, get_proxy_url, initialize_proxy
 from copilot_more.settings import settings
-from copilot_more.token import get_cached_copilot_token
+from copilot_more.token import get_cached_copilot_token, refresh_token
 from copilot_more.utils import StringSanitizer
+
 sanitizer = StringSanitizer()
 
 initialize_proxy()
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await initialize_settings()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,9 +33,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Use settings from pydantic-settings
-TIMEOUT = ClientTimeout(total=settings.timeout_seconds)
-MAX_TOKENS = 10240
+async def initialize_settings():
+    resp = await refresh_token()
+    endpoints = resp['endpoints']
+    logger.debug(f"Endpoints: {json.dumps(endpoints, indent=2)}")
+    settings.chat_completions_api_endpoint = endpoints["api"] + "/chat/completions"
+    settings.models_api_endpoint = endpoints["api"] + "/models"
 
 
 def preprocess_request_body(request_body: dict) -> dict:
@@ -117,7 +128,9 @@ def convert_to_sse_events(data: dict) -> list[str]:
 
 async def create_client_session() -> ClientSession:
     connector = TCPConnector(ssl=False) if get_proxy_url() else TCPConnector()
-    return ClientSession(timeout=TIMEOUT, connector=connector)
+    return ClientSession(
+        timeout=ClientTimeout(total=settings.timeout_seconds), connector=connector
+    )
 
 
 @app.get("/models")
@@ -133,7 +146,7 @@ async def list_models():
                 "headers": {
                     "Authorization": f"Bearer {token['token']}",
                     "Content-Type": "application/json",
-                    "editor-version": settings.editor_version
+                    "editor-version": settings.editor_version,
                 }
             }
             if RECORD_TRAFFIC:
@@ -186,7 +199,9 @@ async def proxy_chat_completions(request: Request):
                 }
                 if RECORD_TRAFFIC:
                     kwargs["proxy"] = get_proxy_url()
-                async with s.post(settings.chat_completions_api_endpoint, **kwargs) as response:
+                async with s.post(
+                    settings.chat_completions_api_endpoint, **kwargs
+                ) as response:
                     if response.status != 200:
                         error_message = await response.text()
                         logger.error(f"API error: {error_message}")
@@ -214,31 +229,3 @@ async def proxy_chat_completions(request: Request):
         stream_response(),
         media_type="text/event-stream",
     )
-
-async def fetch_endpoints() -> Dict[str, Any]:
-    async with ClientSession() as session:
-        headers = {
-            'Host': 'api.github.com',
-            'authorization': f'token {settings.refresh_token}',
-            'editor-version': settings.editor_version,
-            'sec-fetch-site': 'none',
-            'sec-fetch-mode': 'no-cors',
-            'sec-fetch-dest': 'empty',
-            'priority': 'u=4, i'
-        }
-        async with session.get('https://api.github.com/copilot_internal/v2/token', headers=headers) as response:
-            response.raise_for_status()  # Raise an error for bad responses
-            return (await response.json())['endpoints']
-
-async def initialize_settings():
-    endpoints = await fetch_endpoints()
-    print(endpoints)
-    settings.chat_completions_api_endpoint = endpoints['api'] + '/chat/completions'
-    settings.models_api_endpoint = endpoints['api'] + '/models'
-
-
-@app.on_event("startup")
-async def startup_event():
-    await initialize_settings()
-
-

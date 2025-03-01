@@ -64,8 +64,6 @@ The application allows you to customize behavior through environment variables o
 | Setting | Environment Variable | Default | Description |
 |---------|---------------------|---------|-------------|
 | GitHub Refresh Token | `REFRESH_TOKEN` | None (Required) | GitHub Copilot refresh token |
-| API Endpoint | `CHAT_COMPLETIONS_API_ENDPOINT` | https://api.individual.githubcopilot.com/chat/completions | Chat completions API endpoint (Enterprise users should use https://api.business.githubcopilot.com/chat/completions) |
-| Models Endpoint | `MODELS_API_ENDPOINT` | https://api.individual.githubcopilot.com/models | Models API endpoint (Enterprise users should use https://api.business.githubcopilot.com/models) |
 | Editor Version | `EDITOR_VERSION` | vscode/1.95.3 | Editor version for API requests |
 | Max Tokens | `MAX_TOKENS` | 10240 | Maximum tokens in responses |
 | Timeout | `TIMEOUT_SECONDS` | 300 | API request timeout in seconds |
@@ -78,14 +76,6 @@ Once you have set up your `.env` file with all your configuration settings, you 
 ```bash
 poetry run uvicorn copilot_more.server:app --port 15432
 ```
-
-### Enterprise Users
-If you are an enterprise GitHub Copilot user, you must use the business API endpoints instead of the individual ones:
-```
-CHAT_COMPLETIONS_API_ENDPOINT=https://api.business.githubcopilot.com/chat/completions
-MODELS_API_ENDPOINT=https://api.business.githubcopilot.com/models
-```
-These can be set in your `.env` file or as environment variables when running the application.
 
 ## ✨ Magic Time
 Now you can connect Cline or any other AI client to `http://localhost:15432` and start coding with the power of GPT-4o and Claude-3.5-Sonnet without worrying about the cost. Note, the copilot-more manages the access token, you can use whatever string as API keys if Cline or the AI tools ask for one.

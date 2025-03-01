@@ -1,6 +1,9 @@
-import pytest
 from typing import Any
-from copilot_more.utils import StringSanitizer, EncodingStrategy, ConversionResult
+
+import pytest
+
+from copilot_more.utils import (ConversionResult, EncodingStrategy,
+                                StringSanitizer)
 
 
 @pytest.fixture
@@ -11,7 +14,9 @@ def sanitizer() -> StringSanitizer:
 
 def test_sanitize_normal_string(sanitizer: StringSanitizer) -> None:
     # Use REMOVE strategy to avoid automatic normalization
-    result: ConversionResult = sanitizer.sanitize("Hello, World!", strategy=EncodingStrategy.REMOVE)
+    result: ConversionResult = sanitizer.sanitize(
+        "Hello, World!", strategy=EncodingStrategy.REMOVE
+    )
     assert result.text == "Hello, World!"
     assert result.success
     assert not result.modifications
@@ -54,12 +59,16 @@ def test_sanitize_with_different_strategies(sanitizer: StringSanitizer) -> None:
     text: str = "Hello\ufffdWorld"
 
     # Test NORMALIZE strategy
-    norm_result: ConversionResult = sanitizer.sanitize(text, strategy=EncodingStrategy.NORMALIZE)
+    norm_result: ConversionResult = sanitizer.sanitize(
+        text, strategy=EncodingStrategy.NORMALIZE
+    )
     assert norm_result.success
     assert "normalization" in norm_result.modifications
 
     # Test REMOVE strategy
-    remove_result: ConversionResult = sanitizer.sanitize(text, strategy=EncodingStrategy.REMOVE)
+    remove_result: ConversionResult = sanitizer.sanitize(
+        text, strategy=EncodingStrategy.REMOVE
+    )
     assert remove_result.success
     assert remove_result.text == "HelloWorld"
 
@@ -91,9 +100,9 @@ def test_detect_encoding_info(sanitizer: StringSanitizer) -> None:
 def test_normalize_string(sanitizer: StringSanitizer) -> None:
     # Test with combining characters
     text: str = "e\u0301"  # é composed of 'e' and combining acute accent
-    result: str = sanitizer.normalize_string(text, form='NFC')
+    result: str = sanitizer.normalize_string(text, form="NFC")
     assert len(result) == 1  # Should combine into a single character
-    assert result == 'é'
+    assert result == "é"
 
 
 def test_is_safe_for_xml(sanitizer: StringSanitizer) -> None:

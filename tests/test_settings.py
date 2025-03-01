@@ -32,7 +32,10 @@ class TestSettings(TestCase):
         with mock.patch.dict(os.environ, {"REFRESH_TOKEN": "invalid_token"}):
             with pytest.raises(ValidationError) as excinfo:
                 Settings()
-            assert "REFRESH_TOKEN should be a GitHub OAuth token starting with 'gho_'" in str(excinfo.value)
+            assert (
+                "REFRESH_TOKEN should be a GitHub OAuth token starting with 'gho_'"
+                in str(excinfo.value)
+            )
 
         # Valid token
         with mock.patch.dict(os.environ, {"REFRESH_TOKEN": "gho_valid_token"}):
@@ -43,8 +46,14 @@ class TestSettings(TestCase):
         """Test that default values are set correctly."""
         with mock.patch.dict(os.environ, {"REFRESH_TOKEN": "gho_valid_token"}):
             settings = Settings()
-            assert settings.chat_completions_api_endpoint == "https://api.individual.githubcopilot.com/chat/completions"
-            assert settings.models_api_endpoint == "https://api.individual.githubcopilot.com/models"
+            assert (
+                settings.chat_completions_api_endpoint
+                == "https://api.individual.githubcopilot.com/chat/completions"
+            )
+            assert (
+                settings.models_api_endpoint
+                == "https://api.individual.githubcopilot.com/models"
+            )
             assert settings.editor_version == "vscode/1.95.3"
             assert settings.max_tokens == 10240
             assert settings.timeout_seconds == 300
@@ -65,7 +74,9 @@ class TestSettings(TestCase):
             },
         ):
             settings = Settings()
-            assert settings.chat_completions_api_endpoint == "https://custom.endpoint/chat"
+            assert (
+                settings.chat_completions_api_endpoint == "https://custom.endpoint/chat"
+            )
             assert settings.models_api_endpoint == "https://custom.endpoint/models"
             assert settings.editor_version == "custom-editor/1.0"
             assert settings.max_tokens == 5000
@@ -89,7 +100,8 @@ class TestSettings(TestCase):
 
         for value, expected in test_cases:
             with mock.patch.dict(
-                os.environ, {"REFRESH_TOKEN": "gho_valid_token", "RECORD_TRAFFIC": value}
+                os.environ,
+                {"REFRESH_TOKEN": "gho_valid_token", "RECORD_TRAFFIC": value},
             ):
                 settings = Settings()
                 assert settings.record_traffic is expected, f"Failed for value: {value}"

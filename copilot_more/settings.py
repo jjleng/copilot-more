@@ -1,6 +1,7 @@
 """
 Settings module for copilot-more using pydantic-settings for configuration management.
 """
+
 from functools import lru_cache
 
 from pydantic import Field, field_validator
@@ -13,39 +14,35 @@ class Settings(BaseSettings):
 
     This centralizes all configuration values and provides validation.
     """
+
     # GitHub Copilot API settings
     refresh_token: str = Field(
-        default="",
-        description="GitHub Copilot refresh token for authentication"
+        default="", description="GitHub Copilot refresh token for authentication"
     )
 
     chat_completions_api_endpoint: str = Field(
         default="https://api.individual.githubcopilot.com/chat/completions",
-        description="GitHub Copilot chat completions API endpoint"
+        description="GitHub Copilot chat completions API endpoint",
     )
     models_api_endpoint: str = Field(
         default="https://api.individual.githubcopilot.com/models",
-        description="GitHub Copilot models API endpoint"
+        description="GitHub Copilot models API endpoint",
     )
     editor_version: str = Field(
-        default="vscode/1.95.3",
-        description="Editor version to use in API requests"
+        default="vscode/1.95.3", description="Editor version to use in API requests"
     )
 
     # Request and response settings
     max_tokens: int = Field(
-        default=10240,
-        description="Maximum number of tokens in API responses"
+        default=10240, description="Maximum number of tokens in API responses"
     )
     timeout_seconds: int = Field(
-        default=300,
-        description="Timeout for API requests in seconds"
+        default=300, description="Timeout for API requests in seconds"
     )
 
     # Proxy and traffic recording settings
     record_traffic: bool = Field(
-        default=False,
-        description="Whether to record API traffic for debugging"
+        default=False, description="Whether to record API traffic for debugging"
     )
 
     # Pydantic model configuration
@@ -63,7 +60,9 @@ class Settings(BaseSettings):
             raise ValueError("REFRESH_TOKEN environment variable is required")
 
         if not v.startswith("gho_"):
-            raise ValueError("REFRESH_TOKEN should be a GitHub OAuth token starting with 'gho_'")
+            raise ValueError(
+                "REFRESH_TOKEN should be a GitHub OAuth token starting with 'gho_'"
+            )
         return v
 
 

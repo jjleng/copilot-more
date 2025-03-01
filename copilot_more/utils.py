@@ -1,26 +1,32 @@
-from typing import Optional, Literal
-from copilot_more.logger import logger
-import unicodedata
-import re
 import codecs
-from enum import Enum
+import re
+import unicodedata
 from dataclasses import dataclass
+from enum import Enum
+from typing import Literal, Optional
+
+from copilot_more.logger import logger
+
 
 class EncodingStrategy(Enum):
     """Defines different strategies for handling problematic characters during string sanitization"""
-    REMOVE = 'remove'
-    REPLACE = 'replace'
-    ENCODE_ESCAPE = 'encode_escape'
-    NORMALIZE = 'normalize'
+
+    REMOVE = "remove"
+    REPLACE = "replace"
+    ENCODE_ESCAPE = "encode_escape"
+    NORMALIZE = "normalize"
+
 
 @dataclass
 class ConversionResult:
     """Result object containing sanitized text and conversion metadata"""
+
     text: str
     original_encoding: Optional[str]
     modifications: dict[str, int]  # maps modification type to occurrence count
     warnings: list[str]
     success: bool
+
 
 class StringSanitizer:
     """
@@ -34,16 +40,16 @@ class StringSanitizer:
         # UTF-16 surrogate pair range (0xD800-0xDFFF)
         self.surrogate_range = set(range(0xD800, 0xE000))
         # Unicode replacement characters
-        self.replacement_chars = {'\ufffd', '�'}
+        self.replacement_chars = {"\ufffd", "�"}
 
         # Common problematic patterns
-        self.utf16_pattern = re.compile(r'\\u0000.')
-        self.unicode_escape_pattern = re.compile(r'\\u[0-9a-fA-F]{4}')
+        self.utf16_pattern = re.compile(r"\\u0000.")
+        self.unicode_escape_pattern = re.compile(r"\\u[0-9a-fA-F]{4}")
 
         # Map of characters that should always be replaced
         self.char_replacements = {
-            '\x00': '',  # null byte
-            '\ufeff': '',  # byte order mark
+            "\x00": "",  # null byte
+            "\ufeff": "",  # byte order mark
         }
 
     def detect_encoding_info(self, text: str) -> dict:
@@ -51,27 +57,29 @@ class StringSanitizer:
         Detect detailed encoding information about the string.
         """
         info = {
-            'has_utf16': bool(self.utf16_pattern.search(text)),
-            'has_replacement_chars': any(c in text for c in self.replacement_chars),
-            'has_surrogate_pairs': any(ord(c) in self.surrogate_range for c in text),
-            'has_control_chars': any(ord(c) in self.control_chars for c in text),
-            'has_unicode_escapes': bool(self.unicode_escape_pattern.search(text)),
-            'max_ordinal': max((ord(c) for c in text), default=0),
-            'unique_chars': len(set(text)),
-            'suspicious_sequences': []
+            "has_utf16": bool(self.utf16_pattern.search(text)),
+            "has_replacement_chars": any(c in text for c in self.replacement_chars),
+            "has_surrogate_pairs": any(ord(c) in self.surrogate_range for c in text),
+            "has_control_chars": any(ord(c) in self.control_chars for c in text),
+            "has_unicode_escapes": bool(self.unicode_escape_pattern.search(text)),
+            "max_ordinal": max((ord(c) for c in text), default=0),
+            "unique_chars": len(set(text)),
+            "suspicious_sequences": [],
         }
 
         # Look for suspicious byte sequences
         try:
-            encoded = text.encode('utf-8')
-            if b'\xef\xbf\xbd' in encoded:  # UTF-8 replacement character
-                info['suspicious_sequences'].append('utf8_replacement') # type: ignore
+            encoded = text.encode("utf-8")
+            if b"\xef\xbf\xbd" in encoded:  # UTF-8 replacement character
+                info["suspicious_sequences"].append("utf8_replacement")  # type: ignore
         except UnicodeEncodeError:
-            info['suspicious_sequences'].append('encode_error') # type: ignore
+            info["suspicious_sequences"].append("encode_error")  # type: ignore
 
         return info
 
-    def normalize_string(self, text: str, form: Literal['NFC', 'NFD', 'NFKC', 'NFKD'] = 'NFKC') -> str:
+    def normalize_string(
+        self, text: str, form: Literal["NFC", "NFD", "NFKC", "NFKD"] = "NFKC"
+    ) -> str:
         """
         Normalize Unicode strings to a consistent form.
 
@@ -94,7 +102,7 @@ class StringSanitizer:
         strategy: EncodingStrategy = EncodingStrategy.NORMALIZE,
         force_encoding: Optional[str] = None,
         max_length: Optional[int] = None,
-        strict: bool = False
+        strict: bool = False,
     ) -> ConversionResult:
         """
         Sanitize string with detailed tracking and flexible handling.
@@ -115,7 +123,7 @@ class StringSanitizer:
                 original_encoding=None,
                 modifications={},
                 warnings=[],
-                success=True
+                success=True,
             )
 
         modifications: dict = {}
@@ -131,49 +139,43 @@ class StringSanitizer:
                 modifications[mod_type] = modifications.get(mod_type, 0) + 1
 
             # Handle UTF-16 sequences
-            if encoding_info['has_utf16']:
-                track_mod('utf16_conversion')
-                result = self.utf16_pattern.sub(
-                    lambda m: m.group(0)[-1],
-                    result
-                )
+            if encoding_info["has_utf16"]:
+                track_mod("utf16_conversion")
+                result = self.utf16_pattern.sub(lambda m: m.group(0)[-1], result)
 
             # Handle replacement characters
-            if encoding_info['has_replacement_chars']:
-                track_mod('replacement_removal')
+            if encoding_info["has_replacement_chars"]:
+                track_mod("replacement_removal")
                 for char in self.replacement_chars:
-                    result = result.replace(char, '')
+                    result = result.replace(char, "")
 
             # Apply normalization
             if strategy == EncodingStrategy.NORMALIZE:
-                track_mod('normalization')
+                track_mod("normalization")
                 result = self.normalize_string(result)
 
             # Handle known problematic characters
             for char, replacement in self.char_replacements.items():
                 if char in result:
-                    track_mod('known_char_replacement')
+                    track_mod("known_char_replacement")
                     result = result.replace(char, replacement)
 
             # Handle control characters
-            if encoding_info['has_control_chars']:
-                track_mod('control_char_handling')
-                result = ''.join(
-                    c for c in result
-                    if ord(c) not in self.control_chars
-                )
+            if encoding_info["has_control_chars"]:
+                track_mod("control_char_handling")
+                result = "".join(c for c in result if ord(c) not in self.control_chars)
 
             # Handle Unicode escapes
-            if encoding_info['has_unicode_escapes']:
-                track_mod('unicode_escape_handling')
+            if encoding_info["has_unicode_escapes"]:
+                track_mod("unicode_escape_handling")
                 try:
-                    result = codecs.decode(result, 'unicode-escape')
+                    result = codecs.decode(result, "unicode-escape")
                 except Exception as e:
                     warnings.append(f"Unicode escape handling failed: {e}")
 
             # Enforce length limit if specified
             if max_length and len(result) > max_length:
-                track_mod('length_truncation')
+                track_mod("length_truncation")
                 result = result[:max_length]
 
             # Final normalization pass
@@ -188,7 +190,7 @@ class StringSanitizer:
                 original_encoding=force_encoding or self._guess_encoding(encoding_info),
                 modifications=modifications,
                 warnings=warnings,
-                success=True
+                success=True,
             )
 
         except Exception as e:
@@ -200,18 +202,18 @@ class StringSanitizer:
                 original_encoding=None,
                 modifications=modifications,
                 warnings=[*warnings, str(e)],
-                success=False
+                success=False,
             )
 
     def _guess_encoding(self, encoding_info: dict) -> str:
         """Guess the original encoding based on string characteristics"""
-        if encoding_info['has_utf16']:
-            return 'utf-16'
-        if encoding_info['has_surrogate_pairs']:
-            return 'utf-16le'
-        if encoding_info['max_ordinal'] > 127:
-            return 'utf-8'
-        return 'ascii'
+        if encoding_info["has_utf16"]:
+            return "utf-16"
+        if encoding_info["has_surrogate_pairs"]:
+            return "utf-16le"
+        if encoding_info["max_ordinal"] > 127:
+            return "utf-8"
+        return "ascii"
 
     @staticmethod
     def is_safe_for_xml(text: str) -> bool:
