@@ -1,4 +1,5 @@
 import json
+from typing import Dict, Any
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from fastapi import FastAPI, HTTPException, Request
@@ -213,3 +214,31 @@ async def proxy_chat_completions(request: Request):
         stream_response(),
         media_type="text/event-stream",
     )
+
+async def fetch_endpoints() -> Dict[str, Any]:
+    async with ClientSession() as session:
+        headers = {
+            'Host': 'api.github.com',
+            'authorization': f'token {settings.refresh_token}',
+            'editor-version': settings.editor_version,
+            'sec-fetch-site': 'none',
+            'sec-fetch-mode': 'no-cors',
+            'sec-fetch-dest': 'empty',
+            'priority': 'u=4, i'
+        }
+        async with session.get('https://api.github.com/copilot_internal/v2/token', headers=headers) as response:
+            response.raise_for_status()  # Raise an error for bad responses
+            return (await response.json())['endpoints']
+
+async def initialize_settings():
+    endpoints = await fetch_endpoints()
+    print(endpoints)
+    settings.chat_completions_api_endpoint = endpoints['api'] + '/chat/completions'
+    settings.models_api_endpoint = endpoints['api'] + '/models'
+
+
+@app.on_event("startup")
+async def startup_event():
+    await initialize_settings()
+Footer
+
