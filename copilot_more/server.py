@@ -1,4 +1,7 @@
 import json
+import random
+import asyncio
+from rich import print
 from contextlib import asynccontextmanager
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
@@ -20,6 +23,12 @@ initialize_proxy()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await initialize_settings()
+    if settings.max_delay_seconds == 0:
+        print("[red]WARNING: API call delays are disabled. This may cause you to hit Copilot rate limits quickly when using agentic coding tools or making rapid requests.[/red]")
+        print("[red]Consider setting min_delay_seconds and max_delay_seconds in your configuration to add request throttling.[/red]")
+    else:
+        print(f"[green]API call throttling is enabled:[/green] Random delay between {settings.min_delay_seconds:.2f} and {settings.max_delay_seconds:.2f} seconds will be applied to requests.")
+        print("[yellow]This helps prevent hitting Copilot API rate limits during heavy usage.[/yellow]")
     yield
 
 
@@ -169,6 +178,12 @@ async def proxy_chat_completions(request: Request):
     """
     Proxies chat completion requests with SSE support.
     """
+    # Apply random delay if configured
+    if settings.max_delay_seconds > 0:
+        delay = random.uniform(settings.min_delay_seconds, settings.max_delay_seconds)
+        logger.debug(f"Applying random delay of {delay:.2f} seconds")
+        await asyncio.sleep(delay)
+
     request_body = await request.json()
 
     logger.info(f"Received request: {json.dumps(request_body, indent=2)}")

@@ -4,7 +4,7 @@ Settings module for copilot-more using pydantic-settings for configuration manag
 
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, NonNegativeFloat
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,7 +29,7 @@ class Settings(BaseSettings):
         description="GitHub Copilot models API endpoint",
     )
     editor_version: str = Field(
-        default="vscode/1.95.3", description="Editor version to use in API requests"
+        default="vscode/1.97.2", description="Editor version to use in API requests"
     )
 
     # Request and response settings
@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     # Proxy and traffic recording settings
     record_traffic: bool = Field(
         default=False, description="Whether to record API traffic for debugging"
+    )
+
+    # Random delay settings for throttling
+    min_delay_seconds: NonNegativeFloat = Field(
+        default=0.0, description="Minimum random delay time in seconds (default: no delay)"
+    )
+    max_delay_seconds: NonNegativeFloat = Field(
+        default=0.0, description="Maximum random delay time in seconds (default: no delay)"
     )
 
     # Pydantic model configuration
@@ -63,6 +71,14 @@ class Settings(BaseSettings):
             raise ValueError(
                 "REFRESH_TOKEN should be a GitHub OAuth token starting with 'gho_'"
             )
+        return v
+
+    @field_validator("max_delay_seconds")
+    def validate_max_delay(cls, v: float, info) -> float:
+        """Validate that max_delay_seconds is >= min_delay_seconds."""
+        min_delay = info.data.get("min_delay_seconds", 0.0)
+        if v < min_delay:
+            raise ValueError("max_delay_seconds must be greater than or equal to min_delay_seconds")
         return v
 
 

@@ -25,37 +25,17 @@ access_token=$(echo "$response_access_token" | grep -oE 'access_token=[^&]+' | c
 # Print the access token
 echo "Your access token is: $access_token"
 
-# Ask if the user is an enterprise GitHub Copilot user
-echo "Are you an enterprise GitHub Copilot user? (y/N)"
-read is_enterprise
-is_enterprise=$(echo "$is_enterprise" | tr '[:upper:]' '[:lower:]')
-
 # Create .env file with all needed variables
 cat > .env << EOF
 # Required settings
 REFRESH_TOKEN=$access_token
 
-# API endpoints
-EOF
-
-# Set API endpoints based on user type
-if [[ "$is_enterprise" == "y" ]]; then
-  echo "# Enterprise API endpoints" >> .env
-  echo "CHAT_COMPLETIONS_API_ENDPOINT=https://api.business.githubcopilot.com/chat/completions" >> .env
-  echo "MODELS_API_ENDPOINT=https://api.business.githubcopilot.com/models" >> .env
-else
-  echo "# Individual API endpoints" >> .env
-  echo "CHAT_COMPLETIONS_API_ENDPOINT=https://api.individual.githubcopilot.com/chat/completions" >> .env
-  echo "MODELS_API_ENDPOINT=https://api.individual.githubcopilot.com/models" >> .env
-fi
-
-# Add the rest of the default settings
-cat >> .env << EOF
-
 # Request settings
 MAX_TOKENS=10240
 TIMEOUT_SECONDS=300
-EDITOR_VERSION=vscode/1.95.3
+EDITOR_VERSION=vscode/1.97.2
+MIN_DELAY_SECONDS=0.0
+MAX_DELAY_SECONDS=0.0
 
 # Debug settings
 RECORD_TRAFFIC=false

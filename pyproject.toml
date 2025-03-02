@@ -12,6 +12,7 @@ uvicorn = "^0.32.1"
 aiohttp = "^3.11.8"
 mitmproxy = "^11.0.2"
 pydantic-settings = "^2.8.1"
+rich = "^13.9.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"

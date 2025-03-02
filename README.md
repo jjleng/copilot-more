@@ -1,8 +1,9 @@
-# Read this first
+# MUST READ!!!
 
-- Contantly hit 429 (rate limit) can get your account banned.
+- Constantly hitting 429 (rate limit) can get your account banned.
 - It seems you can hit 429 quicker with the Sonnet 3.7 models (probably smaller quotas).
 - For RooCode users, highly advise to set **Rate limit** to at least 5s in Advanced Settings
+- In copilot-more, use the MIN_DELAY_SECONDS and MAX_DELAY_SECONDS settings to help you from sending too many requests too quickly.
 
 # copilot-more
 
@@ -70,10 +71,24 @@ The application allows you to customize behavior through environment variables o
 | Setting | Environment Variable | Default | Description |
 |---------|---------------------|---------|-------------|
 | GitHub Refresh Token | `REFRESH_TOKEN` | None (Required) | GitHub Copilot refresh token |
-| Editor Version | `EDITOR_VERSION` | vscode/1.95.3 | Editor version for API requests |
+| Editor Version | `EDITOR_VERSION` | vscode/1.97.2 | Editor version for API requests |
 | Max Tokens | `MAX_TOKENS` | 10240 | Maximum tokens in responses |
 | Timeout | `TIMEOUT_SECONDS` | 300 | API request timeout in seconds |
 | Record Traffic | `RECORD_TRAFFIC` | false | Whether to record API traffic |
+| Min Delay | `MIN_DELAY_SECONDS` | 0.0 | Minimum random delay before requests (0.0 = no delay) |
+| Max Delay | `MAX_DELAY_SECONDS` | 0.0 | Maximum random delay before requests (0.0 = no delay) |
+
+You can control request throttling by setting both `MIN_DELAY_SECONDS` and `MAX_DELAY_SECONDS`. For example, to add a random delay between 5 and 15 seconds before each request:
+
+```bash
+MIN_DELAY_SECONDS=5 MAX_DELAY_SECONDS=15 poetry run uvicorn copilot_more.server:app --port 15432
+```
+
+Or in your `.env` file:
+```
+MIN_DELAY_SECONDS=5
+MAX_DELAY_SECONDS=15
+```
 
 See `.env.example` for a template configuration file. You can `cp .env.example .env` and modify the values as needed.
 
@@ -93,7 +108,7 @@ Now you can connect Cline or any other AI client to `http://localhost:15432` and
 3. Set the following:
      * **API Provider**: `OpenAI Compatible`
      * **API URL**: `http://localhost:15432`
-     * **API Key**: `anyting`
+     * **API Key**: `anything`
      * **Model**: `gpt-4o`, `claude-3.7-sonnet`, `o1`, `o3-mini`
 
 
@@ -115,7 +130,7 @@ All traffic will be logged to files in the current directory with the naming pat
 
 Attach this file when reporting issues. Please zip the original file that ends with the '.mitm' extension and upload to the GH issues.
 
-Note: the Authorization header has been redacted, so the refresh token won't be leaked. 
+Note: the Authorization header has been redacted, so the refresh token won't be leaked.
 
 ## 🤔 Limitation
 

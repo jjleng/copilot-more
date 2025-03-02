@@ -54,7 +54,7 @@ class TestSettings(TestCase):
                 settings.models_api_endpoint
                 == "https://api.individual.githubcopilot.com/models"
             )
-            assert settings.editor_version == "vscode/1.95.3"
+            assert settings.editor_version == "vscode/1.97.2"
             assert settings.max_tokens == 10240
             assert settings.timeout_seconds == 300
             assert settings.record_traffic is False
