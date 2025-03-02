@@ -39,6 +39,7 @@ MAX_DELAY_SECONDS=0.0
 
 # Debug settings
 RECORD_TRAFFIC=false
+LOGURU_LEVEL=INFO
 EOF
 
 echo "Created .env file with all configuration settings."

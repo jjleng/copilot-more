@@ -55,6 +55,11 @@ class Settings(BaseSettings):
         description="Maximum random delay time in seconds (default: no delay)",
     )
 
+    # Logging settings
+    loguru_level: str = Field(
+        default="INFO", description="Loguru logging level (default: INFO)"
+    )
+
     # Pydantic model configuration
     model_config = SettingsConfigDict(
         env_file=".env",

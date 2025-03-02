@@ -126,3 +126,7 @@ cython_debug/
 .pytest-kind
 
 .bin/
+
+data/
+
+.vscode/

@@ -71,6 +71,7 @@ The application allows you to customize behavior through environment variables o
 | Setting | Environment Variable | Default | Description |
 |---------|---------------------|---------|-------------|
 | GitHub Refresh Token | `REFRESH_TOKEN` | None (Required) | GitHub Copilot refresh token |
+| Log Level | `LOGURU_LEVEL` | INFO | Sets the logging level for the application |
 | Editor Version | `EDITOR_VERSION` | vscode/1.97.2 | Editor version for API requests |
 | Max Tokens | `MAX_TOKENS` | 10240 | Maximum tokens in responses |
 | Timeout | `TIMEOUT_SECONDS` | 300 | API request timeout in seconds |

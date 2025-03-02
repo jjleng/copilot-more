@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, Optional
 
-from loguru import logger
+from copilot_more.logger import logger
 
 
 class EncodingStrategy(Enum):
