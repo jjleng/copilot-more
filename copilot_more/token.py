@@ -4,8 +4,8 @@ import time
 from typing import Optional
 
 from aiohttp import ClientSession
+from loguru import logger
 
-from copilot_more.logger import logger
 from copilot_more.settings import settings
 
 # Global variables for token caching

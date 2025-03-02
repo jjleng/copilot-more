@@ -1,15 +1,15 @@
+import asyncio
 import json
 import random
-import asyncio
-from rich import print
 from contextlib import asynccontextmanager
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from loguru import logger
+from rich import print
 
-from copilot_more.logger import logger
 from copilot_more.proxy import RECORD_TRAFFIC, get_proxy_url, initialize_proxy
 from copilot_more.settings import settings
 from copilot_more.token import get_cached_copilot_token, refresh_token
@@ -24,11 +24,19 @@ initialize_proxy()
 async def lifespan(app: FastAPI):
     await initialize_settings()
     if settings.max_delay_seconds == 0:
-        print("[red]WARNING: API call delays are disabled. This may cause you to hit Copilot rate limits quickly when using agentic coding tools or making rapid requests.[/red]")
-        print("[red]Consider setting min_delay_seconds and max_delay_seconds in your configuration to add request throttling.[/red]")
+        print(
+            "[red]WARNING: API call delays are disabled. This may cause you to hit Copilot rate limits quickly when using agentic coding tools or making rapid requests.[/red]"
+        )
+        print(
+            "[red]Consider setting min_delay_seconds and max_delay_seconds in your configuration to add request throttling.[/red]"
+        )
     else:
-        print(f"[green]API call throttling is enabled:[/green] Random delay between {settings.min_delay_seconds:.2f} and {settings.max_delay_seconds:.2f} seconds will be applied to requests.")
-        print("[yellow]This helps prevent hitting Copilot API rate limits during heavy usage.[/yellow]")
+        print(
+            f"[green]API call throttling is enabled:[/green] Random delay between {settings.min_delay_seconds:.2f} and {settings.max_delay_seconds:.2f} seconds will be applied to requests."
+        )
+        print(
+            "[yellow]This helps prevent hitting Copilot API rate limits during heavy usage.[/yellow]"
+        )
     yield
 
 
@@ -42,9 +50,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 async def initialize_settings():
     resp = await refresh_token()
-    endpoints = resp['endpoints']
+    endpoints = resp["endpoints"]
     logger.debug(f"Endpoints: {json.dumps(endpoints, indent=2)}")
     settings.chat_completions_api_endpoint = endpoints["api"] + "/chat/completions"
     settings.models_api_endpoint = endpoints["api"] + "/models"

@@ -2,7 +2,7 @@
 name = "copilot-more"
 version = "0.1.0"
 description = ""
-authors = ["Jijun Leng <jijunleng@gmail.com>"]
+authors = ["Jijun Leng <962285+jjleng@users.noreply.github.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -13,6 +13,8 @@ aiohttp = "^3.11.8"
 mitmproxy = "^11.0.2"
 pydantic-settings = "^2.8.1"
 rich = "^13.9.4"
+loguru = "^0.7.3"
+cachetools = "^5.5.2"        # DO NOT remove
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
