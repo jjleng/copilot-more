@@ -63,6 +63,7 @@ If you want to know more about GH Copilot suspension risk, read this https://git
     git clone https://github.com/jjleng/copilot-more.git
     cd copilot-more
     # run the server. Ensure you either have the refresh token in the .env file or pass it as an environment variable.
+    # If you cannot find the `docker-compose` command, try the `docker compose` command as well.
     docker-compose up --build
     ```
 
