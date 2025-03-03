@@ -2,7 +2,9 @@
 Tests for the settings module.
 """
 
+import json
 import os
+from pathlib import Path
 from unittest import TestCase, mock
 
 import pytest
@@ -11,6 +13,8 @@ from pydantic import ValidationError
 # Ensure we don't trigger the validation when importing for tests
 with mock.patch.dict(os.environ, {"REFRESH_TOKEN": "gho_test_token_for_import"}):
     from copilot_more.settings import Settings
+
+from copilot_more.rate_limit_types import RateLimitBehavior
 
 
 class TestSettings(TestCase):
@@ -105,3 +109,75 @@ class TestSettings(TestCase):
             ):
                 settings = Settings()
                 assert settings.record_traffic is expected, f"Failed for value: {value}"
+
+    def test_rate_limits_loading(self):
+        """Test loading of rate limits from JSON file."""
+        test_limits = {
+            "test-model": [
+                {
+                    "window_minutes": 1,
+                    "total_tokens": 1000,
+                    "input_tokens": 500,
+                    "output_tokens": 500,
+                    "requests": 5,
+                    "behavior": "delay",
+                }
+            ]
+        }
+
+        # Mock everything needed for rate limits loading
+        mock_open = mock.mock_open(read_data=json.dumps(test_limits))
+        with mock.patch.dict(os.environ, {"REFRESH_TOKEN": "gho_valid_token"}):
+            with mock.patch("builtins.open", mock_open):
+                with mock.patch("os.path.exists") as mock_exists:
+                    mock_exists.return_value = True
+                    settings = Settings()
+
+                    # Verify rate limits loaded correctly
+                    assert "test-model" in settings.rate_limits
+                    limits = settings.rate_limits["test-model"]
+                    assert len(limits) == 1
+                    limit = limits[0]
+                    assert limit.window_minutes == 1
+                    assert limit.total_tokens == 1000
+                    assert limit.input_tokens == 500
+                    assert limit.output_tokens == 500
+                    assert limit.requests == 5
+                    assert limit.behavior == RateLimitBehavior.DELAY
+
+    def test_rate_limits_file_not_found(self):
+        """Test behavior when rate limits file is not found."""
+        with mock.patch.dict(os.environ, {"REFRESH_TOKEN": "gho_valid_token"}):
+            with mock.patch("os.path.exists") as mock_exists:
+                mock_exists.return_value = False
+                settings = Settings()
+                assert settings.rate_limits == {}
+
+    def test_rate_limits_invalid_json(self):
+        """Test behavior with invalid JSON in rate limits file."""
+        mock_open = mock.mock_open(read_data="invalid json")
+        with mock.patch.dict(os.environ, {"REFRESH_TOKEN": "gho_valid_token"}):
+            with mock.patch("builtins.open", mock_open):
+                with mock.patch("os.path.exists") as mock_exists:
+                    mock_exists.return_value = True
+                    settings = Settings()
+                    assert settings.rate_limits == {}
+
+    def test_rate_limits_invalid_schema(self):
+        """Test validation of rate limits schema."""
+        invalid_limits = {
+            "test-model": [
+                {
+                    "window_minutes": -1,  # Invalid: must be positive
+                    "behavior": "invalid",  # Invalid: must be delay or error
+                }
+            ]
+        }
+
+        mock_open = mock.mock_open(read_data=json.dumps(invalid_limits))
+        with mock.patch.dict(os.environ, {"REFRESH_TOKEN": "gho_valid_token"}):
+            with mock.patch("builtins.open", mock_open):
+                with mock.patch("os.path.exists") as mock_exists:
+                    mock_exists.return_value = True
+                    settings = Settings()
+                    assert settings.rate_limits == {}

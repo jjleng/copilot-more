@@ -20,6 +20,7 @@ typer = "^0.15.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
+pytest-asyncio = "^0.25.3"
 black = "^24.10.0"
 isort = "^5.13.2"
 pandas-stubs = "^2.2.3.241126"
@@ -30,3 +31,6 @@ token-usage = "copilot_more.cli:app"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"

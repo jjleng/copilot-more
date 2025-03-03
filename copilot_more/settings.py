@@ -2,10 +2,36 @@
 Settings module for copilot-more using pydantic-settings for configuration management.
 """
 
+import json
+import os
+import sys
 from functools import lru_cache
+from typing import Dict, List, Optional
 
-from pydantic import Field, NonNegativeFloat, field_validator
+from pydantic import BaseModel, Field, NonNegativeFloat, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from copilot_more.rate_limit_types import RateLimitBehavior
+
+
+class RateLimitSettings(BaseModel):
+    """Rate limit settings for a specific time window"""
+
+    window_minutes: int = Field(..., gt=0, description="Time window in minutes")
+    input_tokens: Optional[int] = Field(
+        None, gt=0, description="Max input tokens in window"
+    )
+    output_tokens: Optional[int] = Field(
+        None, gt=0, description="Max output tokens in window"
+    )
+    total_tokens: Optional[int] = Field(
+        None, gt=0, description="Max total tokens in window"
+    )
+    requests: Optional[int] = Field(None, gt=0, description="Max requests in window")
+    behavior: RateLimitBehavior = Field(
+        default=RateLimitBehavior.ERROR,
+        description="What to do when limit is hit: error or delay",
+    )
 
 
 class Settings(BaseSettings):
@@ -45,19 +71,70 @@ class Settings(BaseSettings):
         default=False, description="Whether to record API traffic for debugging"
     )
 
-    # Random delay settings for throttling
+    # Rate limiting settings from external JSON file
+    rate_limits: Dict[str, List[RateLimitSettings]] = Field(
+        default_factory=lambda: Settings._load_rate_limits(),
+        description="Rate limits configuration per model",
+    )
+
+    @staticmethod
+    def _load_rate_limits() -> Dict[str, List[RateLimitSettings]]:
+        """Load rate limits from external JSON file"""
+        converted_limits: Dict[str, List[RateLimitSettings]] = {}
+        try:
+            config_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "rate_limits.json"
+            )
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    rate_limits_data = json.load(f)
+
+                # Convert the loaded data to RateLimitSettings objects
+                for model, limits in rate_limits_data.items():
+                    converted_limits[model] = [
+                        RateLimitSettings(
+                            window_minutes=limit["window_minutes"],
+                            total_tokens=limit.get("total_tokens"),
+                            input_tokens=limit.get("input_tokens"),
+                            output_tokens=limit.get("output_tokens"),
+                            requests=limit.get("requests"),
+                            behavior=RateLimitBehavior(limit.get("behavior").lower()),
+                        )
+                        for limit in limits
+                    ]
+                print(f"Loaded rate limits from {config_path}", file=sys.stderr)
+            else:
+                print(
+                    f"No rate limits file found at {config_path}. Rate limiting is disabled.",
+                    file=sys.stderr,
+                )
+        except Exception as e:
+            print(
+                f"Failed to load rate limits from {config_path}: {str(e)}. No rate limits will be applied.",
+                file=sys.stderr,
+            )
+
+        return converted_limits
+
+    # Deprecated: Random delay settings for throttling
     min_delay_seconds: NonNegativeFloat = Field(
         default=0.0,
-        description="Minimum random delay time in seconds (default: no delay)",
+        description="[Deprecated] Minimum random delay time in seconds",
     )
     max_delay_seconds: NonNegativeFloat = Field(
         default=0.0,
-        description="Maximum random delay time in seconds (default: no delay)",
+        description="[Deprecated] Maximum random delay time in seconds",
     )
 
     # Logging settings
     loguru_level: str = Field(
         default="INFO", description="Loguru logging level (default: INFO)"
+    )
+
+    # Sleep setting between API calls
+    sleep_between_calls: NonNegativeFloat = Field(
+        default=0.0,
+        description="Sleep duration in seconds between API calls",
     )
 
     # Pydantic model configuration
@@ -98,7 +175,14 @@ def get_settings() -> Settings:
 
     Using a function with lru_cache allows for lazy loading and efficient reuse.
     """
-    return Settings()
+    settings = Settings()
+
+    # Initialize logger with configured level
+    from copilot_more.logger import init_logger
+
+    init_logger(settings.loguru_level)
+
+    return settings
 
 
 # Create a global instance for direct import in most cases

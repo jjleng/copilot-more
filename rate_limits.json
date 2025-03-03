@@ -1,0 +1,56 @@
+{
+  "claude-3.5-sonnet": [
+    {
+      "window_minutes": 1,
+      "total_tokens": 100000,
+      "input_tokens": 100000,
+      "output_tokens": 10000,
+      "requests": 5,
+      "behavior": "delay"
+    },
+    {
+      "window_minutes": 60,
+      "total_tokens": 2000000,
+      "input_tokens": 2000000,
+      "output_tokens": 100000,
+      "requests": 100,
+      "behavior": "delay"
+    }
+  ],
+  "claude-3.7-sonnet": [
+    {
+      "window_minutes": 1,
+      "total_tokens": 50000,
+      "input_tokens": 50000,
+      "output_tokens": 5000,
+      "requests": 5,
+      "behavior": "delay"
+    },
+    {
+      "window_minutes": 60,
+      "total_tokens": 500000,
+      "input_tokens": 500000,
+      "output_tokens": 50000,
+      "requests": 50,
+      "behavior": "delay"
+    }
+  ],
+  "claude-3.7-sonnet-thought": [
+    {
+      "window_minutes": 1,
+      "total_tokens": 50000,
+      "input_tokens": 50000,
+      "output_tokens": 5000,
+      "requests": 5,
+      "behavior": "delay"
+    },
+    {
+      "window_minutes": 60,
+      "total_tokens": 500000,
+      "input_tokens": 500000,
+      "output_tokens": 50000,
+      "requests": 50,
+      "behavior": "delay"
+    }
+  ]
+}

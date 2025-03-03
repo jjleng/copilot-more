@@ -3,7 +3,7 @@
 - Constantly hitting 429 (rate limit) can get your GH Copilot subscription suspended. Knowing this is important to protect yourself. Not just copilot-more, people get banned by using LM API too because of this, see [reddit thread](https://www.reddit.com/r/RooCode/s/3VXA5FUpA5).
 - It seems you can hit 429 quicker with the Claude 3.7 Sonnet models (probably smaller quotas).
 - For RooCode users, highly advised to set Rate limit to at least 5s in Advanced Settings.
-- In copilot-more, use the MIN_DELAY_SECONDS and MAX_DELAY_SECONDS settings to help prevent sending too many requests too quickly.
+- In copilot-more, use the rate limiting configuration (see below) to control request rates and prevent hitting limits.
 - copilot-more can now display token usage stats for your awareness. [PR 41](https://github.com/jjleng/copilot-more/pull/41)
 - More rate limit features are coming on the way (https://github.com/jjleng/copilot-more/issues/43)
 
@@ -76,20 +76,7 @@ The application allows you to customize behavior through environment variables o
 | Max Tokens | `MAX_TOKENS` | 10240 | Maximum tokens in responses |
 | Timeout | `TIMEOUT_SECONDS` | 300 | API request timeout in seconds |
 | Record Traffic | `RECORD_TRAFFIC` | false | Whether to record API traffic |
-| Min Delay | `MIN_DELAY_SECONDS` | 0.0 | Minimum random delay before requests (0.0 = no delay) |
-| Max Delay | `MAX_DELAY_SECONDS` | 0.0 | Maximum random delay before requests (0.0 = no delay) |
-
-You can control request throttling by setting both `MIN_DELAY_SECONDS` and `MAX_DELAY_SECONDS`. For example, to add a random delay between 5 and 15 seconds before each request:
-
-```bash
-MIN_DELAY_SECONDS=5 MAX_DELAY_SECONDS=15 poetry run uvicorn copilot_more.server:app --port 15432
-```
-
-Or in your `.env` file:
-```
-MIN_DELAY_SECONDS=5
-MAX_DELAY_SECONDS=15
-```
+| Sleep Between Calls | `SLEEP_BETWEEN_CALLS` | 0.0 | Sleep duration in seconds between API calls |
 
 See `.env.example` for a template configuration file. You can `cp .env.example .env` and modify the values as needed.
 
@@ -98,6 +85,58 @@ Once you have set up your `.env` file with all your configuration settings, you 
 ```bash
 poetry run uvicorn copilot_more.server:app --port 15432
 ```
+
+### Rate Limiting Configuration
+
+Rate limiting is optional and only applied to models that you explicitly configure. You can define rate limits for specific models using a `rate_limits.json` file in the project root directory:
+
+```json
+{
+  "claude-3.7-sonnet": [
+    {
+      "window_minutes": 1,
+      "total_tokens": 50000,
+      "input_tokens": 50000,
+      "output_tokens": 5000,
+      "requests": 5,
+      "behavior": "delay"
+    },
+    {
+      "window_minutes": 60,
+      "total_tokens": 500000,
+      "input_tokens": 500000,
+      "output_tokens": 50000,
+      "requests": 100,
+      "behavior": "error"
+    }
+  ]
+}
+```
+
+Configuration options:
+- `window_minutes`: Time window in minutes
+- `total_tokens`: Max total tokens in window (optional)
+- `input_tokens`: Max input tokens in window (optional)
+- `output_tokens`: Max output tokens in window (optional)
+- `requests`: Max requests in window (optional)
+- `behavior`: What to do when limit is hit: "delay" or "error"
+
+**⚠️ Warning:** The default `rate_limits.json` is just an example and not necessarily suitable for production use. You should adjust these limits based on your actual usage patterns.
+
+Notes:
+- Rate limits are only applied to models listed in the configuration file
+- Models not listed in the file will have no rate limits
+- You must specify at least one of: total_tokens, input_tokens, output_tokens, or requests
+- Changes to rate limits require restarting the server to take effect
+
+### Additional Rate Control
+
+While rate limits help control usage within time windows, sometimes you may need finer control over request spacing. The `SLEEP_BETWEEN_CALLS` setting introduces a fixed delay between API calls, which can help prevent burst requests when the API responds very quickly. This is particularly useful when:
+- You want to ensure a minimum time gap between requests regardless of response speed
+- You need to prevent rapid successive requests that might trigger rate limits
+- You want to maintain a more consistent, predictable request pattern
+
+Example: Setting `SLEEP_BETWEEN_CALLS=1.0` ensures at least 1 second between each API call, even if the API responds faster.
 
 ## ✨ Magic Time
 Now you can connect Cline or any other AI client to `http://localhost:15432` and start coding with the power of GPT-4o and Claude-3.5-Sonnet without worrying about the cost. Note, the copilot-more manages the access token, you can use whatever string as API keys if Cline or the AI tools ask for one.

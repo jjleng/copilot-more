@@ -1,7 +1,8 @@
 import asyncio
 import json
-import random
-from contextlib import asynccontextmanager
+import os
+import signal
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
@@ -15,6 +16,8 @@ from rich.table import Table
 from copilot_more.access_token import get_cached_copilot_token, refresh_token
 from copilot_more.logger import logger
 from copilot_more.proxy import RECORD_TRAFFIC, get_proxy_url, initialize_proxy
+from copilot_more.rate_limiter import (RateLimiter, RateLimitError,
+                                       RateLimitRule)
 from copilot_more.settings import settings
 from copilot_more.token_counter import TokenUsage
 from copilot_more.utils import StringSanitizer
@@ -25,33 +28,64 @@ sanitizer = StringSanitizer()
 
 initialize_proxy()
 
-# Global token usage tracker
+# Global trackers
 token_usage = None
+rate_limiter = None
+
+
+def handle_signal():
+    logger.info("Received termination signal. Ctrl+C again to force exit.")
+    # Set a short timeout and then force exit
+    loop = asyncio.get_running_loop()
+    loop.call_later(2.0, os._exit, 0)
+    # For a second signal, exit immediately
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, lambda s, f: os._exit(1))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global token_usage
+    global token_usage, rate_limiter
     # Initialize token usage tracker
     token_usage = TokenUsage()
     logger.info("Initialized token usage tracker")
 
+    # Initialize rate limiter with settings
+    rate_limiter = RateLimiter(token_usage)
+    for model, limits in settings.rate_limits.items():
+        for limit in limits:
+            rule = RateLimitRule(
+                window_minutes=limit.window_minutes,
+                input_tokens=limit.input_tokens,
+                output_tokens=limit.output_tokens,
+                total_tokens=limit.total_tokens,
+                requests=limit.requests,
+                behavior=limit.behavior,
+            )
+            rate_limiter.add_rule(model, rule)
+    logger.info("Initialized rate limiter with configured rules")
+
     await initialize_settings()
-    if settings.max_delay_seconds == 0:
-        print(
-            "[red]WARNING: API call delays are disabled. This may cause you to hit Copilot rate limits quickly when using agentic coding tools or making rapid requests.[/red]"
-        )
-        print(
-            "[red]Consider setting min_delay_seconds and max_delay_seconds in your configuration to add request throttling.[/red]"
-        )
-    else:
-        print(
-            f"[green]API call throttling is enabled:[/green] Random delay between {settings.min_delay_seconds:.2f} and {settings.max_delay_seconds:.2f} seconds will be applied to requests."
-        )
-        print(
-            "[yellow]This helps prevent hitting Copilot API rate limits during heavy usage.[/yellow]"
-        )
+    print(
+        "[green]Rate limiting is enabled[/green] with the following models configured:"
+    )
+    for model, limits in settings.rate_limits.items():
+        print(f"[yellow]Model: {model}[/yellow]")
+        for limit in limits:
+            print(
+                f"  - {limit.window_minutes}min window: "
+                f"{'tokens: ' + str(limit.total_tokens) if limit.total_tokens else ''}"
+                f"{' requests: ' + str(limit.requests) if limit.requests else ''} "
+                f"({limit.behavior.value})"
+            )
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, handle_signal)
+
     yield
+
+    logger.info("Application shutting down normally")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -100,6 +134,7 @@ def print_model_usage_statistics(model: str):
 
     now = datetime.now()
     time_periods = [
+        ("Last minute", now - timedelta(minutes=1), now),
         ("Last hour", now - timedelta(hours=1), now),
         ("Last 2 hours", now - timedelta(hours=2), now),
         ("Last 5 hours", now - timedelta(hours=5), now),
@@ -271,6 +306,20 @@ async def create_client_session() -> ClientSession:
     )
 
 
+async def execute_rate_limit_sleep(delay: float, reason: str = "Rate limit") -> None:
+    if delay <= 0:
+        return
+
+    logger.info(f"{reason} delay: waiting {delay:.2f} seconds")
+
+    try:
+        with suppress(asyncio.CancelledError):
+            await asyncio.sleep(delay)
+    except asyncio.CancelledError:
+        logger.info(f"{reason} delay interrupted")
+        raise HTTPException(499, "Request cancelled by client")
+
+
 @app.get("/models")
 async def list_models():
     """
@@ -307,14 +356,7 @@ async def proxy_chat_completions(request: Request):
     """
     Proxies chat completion requests with SSE support.
     """
-    # Apply random delay if configured
-    if settings.max_delay_seconds > 0:
-        delay = random.uniform(settings.min_delay_seconds, settings.max_delay_seconds)
-        logger.info(f"Applying random delay of {delay:.2f} seconds")
-        await asyncio.sleep(delay)
-
     request_body = await request.json()
-
     logger.debug(f"Received request: {json.dumps(request_body, indent=2)}")
 
     try:
@@ -327,6 +369,19 @@ async def proxy_chat_completions(request: Request):
     # Get model
     model = request_body.get("model", "")
 
+    # Check request rate limits only
+    if not rate_limiter:
+        raise HTTPException(500, "Rate limiter is not initialized")
+
+    assert rate_limiter is not None  # Help mypy understand the type
+    current_time = datetime.now()
+    try:
+        delay = await rate_limiter.check_request_limit(model, current_time)
+        if delay:
+            await execute_rate_limit_sleep(delay, "Request rate limit")
+    except RateLimitError as e:
+        raise HTTPException(429, str(e))
+
     async def stream_response():
         try:
             token = await get_cached_copilot_token()
@@ -334,6 +389,12 @@ async def proxy_chat_completions(request: Request):
 
             # Storage for accumulated chunks for both model types
             all_text_chunks = ""
+
+            # Apply configured sleep between API calls
+            if settings.sleep_between_calls > 0:
+                await execute_rate_limit_sleep(
+                    settings.sleep_between_calls, "API call spacing"
+                )
 
             session = await create_client_session()
             async with session as s:
@@ -386,8 +447,19 @@ async def proxy_chat_completions(request: Request):
 
                     parsed_events = parse_accumulated_sse_data(all_text_chunks)
 
-                    # Process usage data and show statistics
+                    # Process usage data, check token limits, record the request, and show statistics
                     process_usage_and_show_statistics(model, parsed_events)
+                    if rate_limiter:
+                        current_time = datetime.now()
+                        # Check token limits first as it may affect future requests
+                        token_delay = rate_limiter.check_token_limits(
+                            model, current_time
+                        )
+                        if token_delay and token_delay > 0:
+                            await execute_rate_limit_sleep(
+                                token_delay, "Token rate limit"
+                            )
+                        rate_limiter.record_request(model, current_time)
 
         except Exception as e:
             logger.error(f"Error in stream_response: {str(e)}")
